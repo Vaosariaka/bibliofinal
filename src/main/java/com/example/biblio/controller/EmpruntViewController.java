@@ -134,7 +134,7 @@ public String retournerLivre(
         boolean isAdmin = "admin".equalsIgnoreCase(user.getProfilFormule().getProfil());
         model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("empruntsSurPlace", empruntRepository.findActiveByTypeDeLecture("SUR_PLACE", LocalDateTime.now()));
-        return "retour-emprunt"; // Supprimez les espaces avant le nom de la vue
+        return "retour-emprunt"; 
     }
 
     @PostMapping("/emprunt/retour-emprunt")
@@ -211,7 +211,6 @@ public String afficherFormulaireProlongement(Model model, HttpSession session) {
 
     List<Emprunt> empruntsActifs = empruntRepository.findActiveByTypeDeLecture("A_EMPORTER", LocalDateTime.now());
 
-    //  Initialisation explicite avant fermeture de session Hibernate
     for (Emprunt e : empruntsActifs) {
         if (e.getExemplaire() != null) {
             Hibernate.initialize(e.getExemplaire());
@@ -242,6 +241,9 @@ public String afficherFormulaireProlongement(Model model, HttpSession session) {
         if (admin == null || !"admin".equalsIgnoreCase(admin.getProfilFormule().getProfil())) {
             return "redirect:/livres?error=notadmin";
         }
+
+        final int MAX_PROLONGEMENTS = 2; 
+
         try {
             Emprunt emprunt = empruntRepository.findById(empruntId)
                     .orElseThrow(() -> new RuntimeException("Emprunt non trouvé"));
@@ -249,9 +251,14 @@ public String afficherFormulaireProlongement(Model model, HttpSession session) {
                 redirectAttributes.addFlashAttribute("error", "Cet emprunt n'est plus actif");
                 return "redirect:/emprunt/prolongement";
             }
+            if (emprunt.getNombreProlongement() >= MAX_PROLONGEMENTS) {
+                redirectAttributes.addFlashAttribute("error", "Le nombre maximum de prolongements a été atteint");
+                return "redirect:/emprunt/prolongement";
+            }
+
             LocalDateTime nouvelleDateFin = emprunt.getDateFinEmprunt().plusMonths(moisSupplementaires);
             emprunt.setDateFinEmprunt(nouvelleDateFin);
-            emprunt.setDateFinProposee(nouvelleDateFin); // Update proposed date
+            emprunt.setDateFinProposee(nouvelleDateFin); 
             emprunt.setProlongement(true);
             emprunt.setNombreProlongement(emprunt.getNombreProlongement() + 1);
             empruntRepository.save(emprunt);
