@@ -23,9 +23,9 @@ public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
 
     List<Emprunt> findByExemplaire(Exemplaire exemplaire);
 
-     @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre JOIN FETCH e.emprunteur")
+    @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre JOIN FETCH e.emprunteur")
     List<Emprunt> findAllWithDetails();
-    
+
     @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre JOIN FETCH e.emprunteur WHERE e.emprunteur.id = :userId")
     List<Emprunt> findByEmprunteurIdWithDetails(@Param("userId") Long userId);
 
@@ -33,9 +33,9 @@ public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
     List<Emprunt> findAllNonRetournés();
 
     @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre WHERE e.dateRetourEffective IS NULL")
-List<Emprunt> findAllWithDetailsNotReturned();
+    List<Emprunt> findAllWithDetailsNotReturned();
 
-List<Emprunt> findByEmprunteurIdAndDateRetourEffectiveIsNull(Long emprunteurId);
+    List<Emprunt> findByEmprunteurIdAndDateRetourEffectiveIsNull(Long emprunteurId);
 
-
+    int countByEmprunteurIdAndDateRetourEffectiveIsNull(Long emprunteurId);
 }
