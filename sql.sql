@@ -47,8 +47,11 @@ CREATE TABLE emprunt (
     nombre_prolongement INTEGER NOT NULL DEFAULT 0,
     prolongement_demande BOOLEAN NOT NULL DEFAULT false,
     prolongement_valide BOOLEAN,
-    motif_refus_prolongement TEXT
+    motif_refus_prolongement TEXT,
+    date_retour_effective TIMESTAMP
 );
+
+
 
 -- Table prolongement (inchangée)
 CREATE TABLE prolongement (
