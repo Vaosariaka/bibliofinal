@@ -58,9 +58,7 @@ public class EmpruntService {
             emprunt.setExemplaire(exemplaire);
             emprunt.setEmprunteur(emprunteur);
             emprunt.setDateDebutEmprunt(dateDebutEmprunt);
-            // Set date_fin_emprunt to proposed date or default for SUR_PLACE
             emprunt.setDateFinEmprunt(typeEmprunt.equals("SUR_PLACE") ? LocalDateTime.now().plusDays(1) : dateFinProposee);
-            // Set date_fin_proposee for A_EMPORTER, null for SUR_PLACE
             emprunt.setDateFinProposee(typeEmprunt.equals("SUR_PLACE") ? null : dateFinProposee);
             emprunt.setTypeDeLecture(typeEmprunt);
             emprunt.setProlongement(false);
@@ -83,13 +81,10 @@ public class EmpruntService {
             throw new RuntimeException("La date de retour ne peut pas être antérieure à la date de début de l'emprunt.");
         }
     
-        // Mise à jour de la date de retour effective
         emprunt.setDateRetourEffective(dateRetour);
     
-        // Facultatif : Mettre à jour aussi la date_fin_emprunt
         emprunt.setDateFinEmprunt(dateRetour);
     
-        // Rendre l’exemplaire à nouveau disponible
         Exemplaire exemplaire = emprunt.getExemplaire();
         exemplaire.setDisponible(true);
         exemplaireRepository.save(exemplaire);
