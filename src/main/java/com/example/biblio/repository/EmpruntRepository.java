@@ -12,12 +12,30 @@ import java.util.List;
 public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
     List<Emprunt> findByEmprunteurAndDateFinEmpruntIsNull(Users emprunteur);
     long countByEmprunteurAndDateFinEmpruntIsNull(Users emprunteur);
-    List<Emprunt> findByTypeDeLectureAndDateFinEmpruntIsNull(String typeDeLecture);
+
+    @Query("SELECT e FROM Emprunt e WHERE e.typeDeLecture = :type AND e.dateFinEmprunt > :now")
+    List<Emprunt> findActiveByTypeDeLecture(@Param("type") String typeDeLecture, @Param("now") LocalDateTime now);
+
     List<Emprunt> findByDateFinEmpruntIsNotNullAndDateFinEmpruntAfter(LocalDateTime date);
 
     @Query("SELECT e FROM Emprunt e WHERE e.dateFinEmprunt IS NOT NULL AND e.dateFinEmprunt < :maintenant")
     List<Emprunt> findEmpruntsEnRetard(@Param("maintenant") LocalDateTime maintenant);
 
-    // Nouvelle méthode pour trouver les emprunts par exemplaire
     List<Emprunt> findByExemplaire(Exemplaire exemplaire);
+
+     @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre JOIN FETCH e.emprunteur")
+    List<Emprunt> findAllWithDetails();
+    
+    @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre JOIN FETCH e.emprunteur WHERE e.emprunteur.id = :userId")
+    List<Emprunt> findByEmprunteurIdWithDetails(@Param("userId") Long userId);
+
+    @Query("SELECT e FROM Emprunt e WHERE e.dateRetourEffective IS NULL")
+    List<Emprunt> findAllNonRetournés();
+
+    @Query("SELECT e FROM Emprunt e JOIN FETCH e.exemplaire ex JOIN FETCH ex.livre WHERE e.dateRetourEffective IS NULL")
+List<Emprunt> findAllWithDetailsNotReturned();
+
+List<Emprunt> findByEmprunteurIdAndDateRetourEffectiveIsNull(Long emprunteurId);
+
+
 }
