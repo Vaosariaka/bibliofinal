@@ -4,8 +4,8 @@ import com.example.biblio.model.*;
 import com.example.biblio.repository.*;
 import com.example.biblio.service.EmpruntService;
 import com.example.biblio.service.PenaliteService;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +22,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.hibernate.Hibernate;
+
 
 @Controller
 public class EmpruntViewController {
@@ -103,20 +105,20 @@ public class EmpruntViewController {
         }
     }
 
-    @PostMapping("/emprunt/{id}/retour")
-    public String retournerLivre(
-            @PathVariable Long id,
-            @RequestParam("dateRetour") String dateRetourStr,
-            RedirectAttributes redirectAttributes) {
-        try {
-            LocalDateTime dateRetour = LocalDateTime.parse(dateRetourStr); // format: "2025-07-15T14:00"
-            empruntService.retournerLivre(id, dateRetour);
-            redirectAttributes.addFlashAttribute("success", "Livre retourné avec succès à la date indiquée");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Erreur lors du retour: " + e.getMessage());
-        }
-        return "redirect:/livres";
+   @PostMapping("/emprunt/{id}/retour")
+public String retournerLivre(
+        @PathVariable Long id,
+        @RequestParam("dateRetour") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateRetour,
+        RedirectAttributes redirectAttributes) {
+    try {
+        empruntService.retournerLivre(id, dateRetour);
+        redirectAttributes.addFlashAttribute("success", "Livre retourné avec succès");
+    } catch (Exception e) {
+        redirectAttributes.addFlashAttribute("error", "Erreur lors du retour: " + e.getMessage());
     }
+    return "redirect:/emprunt/liste";
+}
+
     
 
     @GetMapping("/emprunt/retour-emprunt")
@@ -162,11 +164,12 @@ public class EmpruntViewController {
         model.addAttribute("isAdmin", isAdmin);
         
         List<Emprunt> emprunts;
-        if (isAdmin) {
-            emprunts = empruntRepository.findAllWithDetails();
-        } else {
-            emprunts = empruntRepository.findByEmprunteurIdWithDetails(userId);
-        }
+if (isAdmin) {
+    emprunts = empruntRepository.findAllWithDetailsNotReturned();
+} else {
+    emprunts = empruntRepository.findByEmprunteurIdAndDateRetourEffectiveIsNull(userId);
+}
+
         
          List<Map<String, Object>> empruntsFormatted = new ArrayList<>();
     for (Emprunt emprunt : emprunts) {
@@ -188,6 +191,41 @@ public class EmpruntViewController {
     return "emprunt-list";
 }
     
+
+@GetMapping("/emprunt/prolongement")
+public String afficherFormulaireProlongement(Model model, HttpSession session) {
+    Long userId = (Long) session.getAttribute("userId");
+    if (userId == null) {
+        return "redirect:/login";
+    }
+
+    Users user = usersRepository.findById(userId).orElse(null);
+    if (user == null) {
+        return "redirect:/login";
+    }
+
+    boolean isAdmin = "admin".equalsIgnoreCase(user.getProfilFormule().getProfil());
+    if (!isAdmin) {
+        return "redirect:/livres?error=notadmin";
+    }
+
+    List<Emprunt> empruntsActifs = empruntRepository.findActiveByTypeDeLecture("A_EMPORTER", LocalDateTime.now());
+
+    //  Initialisation explicite avant fermeture de session Hibernate
+    for (Emprunt e : empruntsActifs) {
+        if (e.getExemplaire() != null) {
+            Hibernate.initialize(e.getExemplaire());
+            if (e.getExemplaire().getLivre() != null) {
+                Hibernate.initialize(e.getExemplaire().getLivre());
+            }
+        }
+    }
+
+    model.addAttribute("empruntsActifs", empruntsActifs);
+    model.addAttribute("isAdmin", true);
+
+    return "prolongement-form";
+}
 
 
     @PostMapping("/emprunt/prolonger")

@@ -75,19 +75,21 @@ public class EmpruntService {
         }
     }
 
-    public void retournerLivre(Long empruntId, LocalDateTime dateRetourEffective) {
+    public void retournerLivre(Long empruntId, LocalDateTime dateRetour) {
         Emprunt emprunt = empruntRepository.findById(empruntId)
                 .orElseThrow(() -> new RuntimeException("Emprunt non trouvé"));
     
-        if (emprunt.getDateFinEmprunt() != null && dateRetourEffective.isAfter(emprunt.getDateFinEmprunt())) {
-            penaliteService.verifierEtAppliquerPenalites();
+        if (dateRetour.isBefore(emprunt.getDateDebutEmprunt())) {
+            throw new RuntimeException("La date de retour ne peut pas être antérieure à la date de début de l'emprunt.");
         }
     
-        emprunt.setDateRetourEffective(dateRetourEffective);
+        // Mise à jour de la date de retour effective
+        emprunt.setDateRetourEffective(dateRetour);
     
-        // Facultatif : tu peux aussi faire ça si tu veux que la date de fin réelle remplace la date prévue
-        // emprunt.setDateFinEmprunt(dateRetourEffective);
+        // Facultatif : Mettre à jour aussi la date_fin_emprunt
+        emprunt.setDateFinEmprunt(dateRetour);
     
+        // Rendre l’exemplaire à nouveau disponible
         Exemplaire exemplaire = emprunt.getExemplaire();
         exemplaire.setDisponible(true);
         exemplaireRepository.save(exemplaire);
