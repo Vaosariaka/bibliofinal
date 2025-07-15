@@ -28,70 +28,72 @@ public class EmpruntService {
     @Autowired
     private PenaliteService penaliteService;
 
-    public Emprunt creerEmprunt(Long idLivre, Long idEmprunteur, String typeEmprunt) {
-        // Récupérer le livre et l'utilisateur
-        Livre livre = livreRepository.findById(idLivre)
-                .orElseThrow(() -> new RuntimeException("Livre non trouvé"));
-        
-        Users emprunteur = usersRepository.findById(idEmprunteur)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+    public Emprunt creerEmprunt(Long idLivre, Long idEmprunteur, String typeEmprunt, 
+                               LocalDateTime dateDebutEmprunt, LocalDateTime dateFinProposee) {
+        try {
+            System.out.println("Début création emprunt - Livre: " + idLivre + ", User: " + idEmprunteur);
+            
+            Livre livre = livreRepository.findById(idLivre)
+                    .orElseThrow(() -> new RuntimeException("Livre non trouvé"));
+            System.out.println("Livre trouvé: " + livre.getTitre());
+            
+            Users emprunteur = usersRepository.findById(idEmprunteur)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            System.out.println("Utilisateur trouvé: " + emprunteur.getUserName());
 
-        // Vérifier si l'utilisateur a une pénalité active
-        if (penaliteService.utilisateurAPenaliteActive(emprunteur)) {
-            throw new RuntimeException("L'utilisateur a une pénalité active");
+            if (penaliteService.utilisateurAPenaliteActive(emprunteur)) {
+                throw new RuntimeException("penalite_active");
+            }
+
+            List<Exemplaire> exemplairesDisponibles = exemplaireRepository.findByLivreAndDisponibleTrue(livre);
+            if (exemplairesDisponibles.isEmpty()) {
+                throw new RuntimeException("no_exemplaire");
+            }
+
+            Exemplaire exemplaire = exemplairesDisponibles.get(0);
+            exemplaire.setDisponible(false);
+            exemplaireRepository.save(exemplaire);
+
+            Emprunt emprunt = new Emprunt();
+            emprunt.setExemplaire(exemplaire);
+            emprunt.setEmprunteur(emprunteur);
+            emprunt.setDateDebutEmprunt(dateDebutEmprunt);
+            // Set date_fin_emprunt to proposed date or default for SUR_PLACE
+            emprunt.setDateFinEmprunt(typeEmprunt.equals("SUR_PLACE") ? LocalDateTime.now().plusDays(1) : dateFinProposee);
+            // Set date_fin_proposee for A_EMPORTER, null for SUR_PLACE
+            emprunt.setDateFinProposee(typeEmprunt.equals("SUR_PLACE") ? null : dateFinProposee);
+            emprunt.setTypeDeLecture(typeEmprunt);
+            emprunt.setProlongement(false);
+            emprunt.setNombreProlongement(0);
+            emprunt.setProlongementDemande(false);
+
+            return empruntRepository.save(emprunt);
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la création d'emprunt: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        // Vérifier la disponibilité d'un exemplaire
-        List<Exemplaire> exemplairesDisponibles = exemplaireRepository.findByLivreAndDisponibleTrue(livre);
-        if (exemplairesDisponibles.isEmpty()) {
-            throw new RuntimeException("Aucun exemplaire disponible pour ce livre");
-        }
-
-        // Prendre le premier exemplaire disponible
-        Exemplaire exemplaire = exemplairesDisponibles.get(0);
-        exemplaire.setDisponible(false); // Marquer comme non disponible
-        exemplaireRepository.save(exemplaire);
-
-        // Obtenir le profil de l'utilisateur
-        ProfilFormule profil = emprunteur.getProfilFormule();
-        if (profil == null) {
-            throw new RuntimeException("L'utilisateur n'a pas de profil associé");
-        }
-
-        // Créer l'emprunt
-        LocalDateTime dateDebut = LocalDateTime.now();
-        LocalDateTime dateFin = typeEmprunt.equals("A_EMPORTER") ? dateDebut.plusMonths(profil.getNombreDeMois()) : null;
-
-        Emprunt emprunt = new Emprunt();
-        emprunt.setExemplaires(exemplaire);
-        emprunt.setEmprunteur(emprunteur);
-        emprunt.setDateDebutEmprunt(dateDebut);
-        emprunt.setDateFinEmprunt(dateFin);
-        emprunt.setTypeDeLecture(typeEmprunt);
-        emprunt.setProlongement(false);
-        emprunt.setNombreProlongement(0);
-
-        return empruntRepository.save(emprunt);
     }
 
-    public void retournerLivre(Long empruntId) {
+    public void retournerLivre(Long empruntId, LocalDateTime dateRetourEffective) {
         Emprunt emprunt = empruntRepository.findById(empruntId)
                 .orElseThrow(() -> new RuntimeException("Emprunt non trouvé"));
-
-        if (emprunt.getDateFinEmprunt() != null && emprunt.getDateFinEmprunt().isBefore(LocalDateTime.now())) {
-            penaliteService.verifierEtAppliquerPenalites(); // Vérifier les pénalités en cas de retard
+    
+        if (emprunt.getDateFinEmprunt() != null && dateRetourEffective.isAfter(emprunt.getDateFinEmprunt())) {
+            penaliteService.verifierEtAppliquerPenalites();
         }
-
-        // Mettre à jour la date de fin pour les emprunts sur place
-        if ("SUR_PLACE".equals(emprunt.getTypeDeLecture())) {
-            emprunt.setDateFinEmprunt(LocalDateTime.now());
-        }
-
-        // Marquer l'exemplaire comme disponible
-        Exemplaire exemplaire = emprunt.getExemplaires();
+    
+        emprunt.setDateRetourEffective(dateRetourEffective);
+    
+        // Facultatif : tu peux aussi faire ça si tu veux que la date de fin réelle remplace la date prévue
+        // emprunt.setDateFinEmprunt(dateRetourEffective);
+    
+        Exemplaire exemplaire = emprunt.getExemplaire();
         exemplaire.setDisponible(true);
         exemplaireRepository.save(exemplaire);
-
+    
         empruntRepository.save(emprunt);
     }
+    
+    
 }
